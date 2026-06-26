@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mass Comm Attendance</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f1f5f9;--surface:#fff;--border:#e2e8f0;--border-strong:#cbd5e1;
+  --accent:#2563eb;--accent-hover:#1d4ed8;--accent-light:#eff6ff;
+  --text:#1e293b;--text2:#475569;--text3:#94a3b8;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
+  --yellow:#b45309;--yellow-bg:#fffbeb;--yellow-border:#fde68a;
+  --purple:#7c3aed;--purple-bg:#f5f3ff;
+  --r:8px;--mono:'Courier New',monospace;
+  --shadow:0 1px 3px rgba(0,0,0,.1);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.15);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;color:var(--text)}
+
+/* ── OVERLAYS ── */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:200}
+.overlay.hidden{display:none}
+.modal{background:var(--surface);border-radius:16px;padding:36px 32px;width:360px;box-shadow:var(--shadow-lg)}
+.modal h2{font-size:20px;font-weight:700;margin-bottom:4px}
+.modal .sub{font-size:13px;color:var(--text2);margin-bottom:24px}
+.modal label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.modal input,.modal select{width:100%;height:40px;padding:0 12px;font-size:14px;border:1.5px solid var(--border-strong);border-radius:var(--r);background:#fff;color:var(--text);margin-bottom:14px}
+.modal input:focus,.modal select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:40px;padding:0 18px;font-size:14px;font-weight:600;border:none;border-radius:var(--r);cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff;width:100%}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-primary:disabled{background:#93c5fd;cursor:not-allowed}
+.btn-ghost{background:none;border:1px solid var(--border-strong);color:var(--text2)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.btn-danger:hover{background:#fee2e2}
+.btn-sm{height:30px;padding:0 12px;font-size:12px}
+.btn-xs{height:26px;padding:0 9px;font-size:11px}
+.err-msg{font-size:13px;color:var(--red);background:var(--red-bg);border:1px solid var(--red-border);border-radius:6px;padding:8px 12px;margin-top:8px;display:none}
+.login-skip{margin-top:14px;text-align:center;font-size:12px;color:var(--text3)}
+.login-skip a{color:var(--accent);cursor:pointer;text-decoration:underline}
+
+/* ── TOPBAR ── */
+#topbar{position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;gap:12px}
+#topbar h1{font-size:15px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.auth-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 12px}
+.auth-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.auth-pill.editor .dot{background:var(--green)}
+.auth-pill.admin .dot{background:var(--purple)}
+.topbar-btn{height:32px;padding:0 12px;font-size:12px;font-weight:600;border:none;border-radius:6px;cursor:pointer}
+.tb-dashboard{background:var(--purple-bg);color:var(--purple)}
+.tb-logout{background:var(--red-bg);color:var(--red)}
+
+/* ── SYNC BAR ── */
+#syncbar{font-size:12px;padding:5px 20px;display:none;align-items:center;gap:6px;border-bottom:1px solid}
+#syncbar.ok{display:flex;background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+#syncbar.saving{display:flex;background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow-border)}
+#syncbar.err{display:flex;background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
+
+/* ── MAIN PAGE ── */
+.page{max-width:920px;margin:0 auto;padding:1.2rem 1rem}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.search-input{flex:1;min-width:180px;height:36px;padding:0 12px;font-size:14px;border:1px solid var(--border-strong);border-radius:var(--r);background:var(--surface);color:var(--text)}
+.search-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+.filter-btn{height:36px;padding:0 14px;font-size:13px;border:1px solid var(--border-strong);border-radius:var(--r);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s}
+.filter-btn.active{background:var(--accent-light);color:var(--accent);border-color:var(--accent)}
+.stats{display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
+.stat{padding:7px 14px;border-radius:var(--r);font-size:13px;font-weight:500;border:1px solid var(--border)}
+.stat.total{background:#f8fafc;color:var(--text2)}
+.stat.ticked{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+.stat.unticked{background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
+.edit-hint{font-size:12px;color:var(--yellow);background:var(--yellow-bg);border:1px solid var(--yellow-border);border-radius:var(--r);padding:8px 14px;margin-bottom:1rem;display:none;align-items:center;gap:6px}
+.edit-hint.show{display:flex}
+
+/* ── TABLE ── */
+.scroll{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:#fff;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{text-align:left;padding:9px 12px;font-size:11px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border-strong);background:#f8fafc;position:sticky;top:52px;z-index:1;text-transform:uppercase;letter-spacing:.5px}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border:none}
+tbody tr:hover{background:#f8fafc}
+td{padding:8px 12px;vertical-align:middle}
+td.sn{color:var(--text3);font-size:12px;width:40px}
+td.matric{font-family:var(--mono);font-size:12px;color:var(--text2)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge.yes{background:var(--green-bg);color:var(--green)}
+.badge.no{background:var(--red-bg);color:var(--red)}
+.tick-cell{width:48px;text-align:center}
+input[type=checkbox].tick{appearance:none;width:20px;height:20px;border:2px solid var(--border-strong);border-radius:5px;cursor:pointer;position:relative;transition:all .15s;display:block;margin:0 auto}
+input[type=checkbox].tick:checked{background:var(--green);border-color:var(--green)}
+input[type=checkbox].tick:checked::after{content:'✓';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:12px;font-weight:700}
+input[type=checkbox].tick:not(:checked)::after{content:'✗';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--border-strong);font-size:11px}
+input[type=checkbox].tick:disabled{cursor:default;opacity:.45}
+input[type=checkbox].tick:not(:disabled):hover{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+#loading{text-align:center;padding:48px;color:var(--text3);font-size:14px}
+.del-row-btn{opacity:0;background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;transition:opacity .15s}
+tbody tr:hover .del-row-btn{opacity:1}
+
+/* ── DASHBOARD PANEL ── */
+#dashboard{position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);z-index:150;display:none;justify-content:flex-end}
+#dashboard.open{display:flex}
+.dash-panel{width:min(560px,100vw);height:100%;background:var(--surface);overflow-y:auto;display:flex;flex-direction:column;box-shadow:-8px 0 40px rgba(0,0,0,.2)}
+.dash-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:1}
+.dash-header h2{font-size:17px;font-weight:700}
+.dash-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:4px 8px;border-radius:4px}
+.dash-close:hover{background:var(--bg)}
+.dash-body{padding:20px 24px;flex:1}
+.dash-section{margin-bottom:28px}
+.dash-section h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+
+/* online */
+.online-list,.users-list{display:flex;flex-direction:column;gap:6px}
+.online-item,.user-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)}
+.online-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 0 3px rgba(22,163,74,.2)}
+.online-name,.uname{font-weight:600;font-size:13px;flex:1}
+.online-time,.uemail{font-size:11px;color:var(--text3)}
+.online-role,.urole{font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px}
+.online-role.admin,.urole.admin{background:var(--purple-bg);color:var(--purple)}
+.online-role.editor,.urole.editor{background:var(--accent-light);color:var(--accent)}
+
+/* student manager */
+.student-search{width:100%;height:34px;padding:0 10px;font-size:13px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;color:var(--text);margin-bottom:10px}
+.student-search:focus{outline:none;border-color:var(--accent)}
+.student-mgr-list{max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.smgr-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--border);font-size:13px}
+.smgr-name{flex:1;font-weight:500}
+.smgr-matric{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.add-student-form{background:var(--bg);border:1px dashed var(--border-strong);border-radius:var(--r);padding:14px;margin-top:10px;display:none}
+.add-student-form .row{display:flex;gap:8px}
+.add-student-form input{flex:1;height:34px;padding:0 10px;font-size:13px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;color:var(--text)}
+.add-student-form input:focus{outline:none;border-color:var(--accent)}
+.add-student-form .actions{display:flex;gap:8px;margin-top:8px}
+
+/* create user form */
+.create-form{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px;display:none}
+.create-form .row{display:flex;gap:8px;flex-wrap:wrap}
+.create-form input,.create-form select{flex:1;min-width:120px;height:36px;padding:0 10px;font-size:13px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;color:var(--text)}
+.create-form input:focus,.create-form select:focus{outline:none;border-color:var(--accent)}
+
+/* audit log */
+.log-list{display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto}
+.log-item{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:6px;font-size:12px;border:1px solid var(--border)}
+.log-item.login{background:var(--green-bg);border-color:var(--green-border)}
+.log-item.logout{background:#f8fafc}
+.log-item.tick{background:var(--yellow-bg);border-color:var(--yellow-border)}
+.log-item.create{background:var(--purple-bg);border-color:#ddd6fe}
+.log-item.delete{background:var(--red-bg);border-color:var(--red-border)}
+.log-item.addStudent{background:var(--green-bg);border-color:var(--green-border)}
+.log-item.removeStudent{background:var(--red-bg);border-color:var(--red-border)}
+.log-icon{font-size:14px;flex-shrink:0}
+.log-text{flex:1;color:var(--text2);line-height:1.4}
+.log-time{color:var(--text3);white-space:nowrap;font-size:11px}
+
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #e2e8f0;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:16px;color:var(--text3);font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div class="overlay" id="login-overlay">
+  <div class="modal">
+    <h2>🔐 Sign In</h2>
+    <p class="sub">Attendance list is public. Sign in to edit or manage.</p>
+    <label>Email</label>
+    <input type="email" id="li-email" placeholder="you@example.com" autocomplete="email">
+    <label>Password</label>
+    <input type="password" id="li-pass" placeholder="Password" autocomplete="current-password">
+    <button class="btn btn-primary" id="li-btn" onclick="doLogin()">Sign In</button>
+    <div class="err-msg" id="li-err"></div>
+    <div class="login-skip">Just viewing? <a onclick="skipLogin()">Continue as viewer →</a></div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <h1>Mass Comm Attendance</h1>
+  <div class="topbar-right">
+    <div class="auth-pill" id="auth-pill">
+      <span class="dot"></span>
+      <span id="auth-label">Loading…</span>
+    </div>
+    <button class="topbar-btn tb-dashboard" id="dash-btn" style="display:none" onclick="openDash()">⚙️ Dashboard</button>
+    <button class="topbar-btn tb-logout" id="logout-btn" style="display:none" onclick="doLogout()">Log out</button>
+  </div>
+</div>
+
+<!-- SYNC BAR -->
+<div id="syncbar"></div>
+
+<!-- MAIN -->
+<div class="page">
+  <div class="edit-hint" id="edit-hint">✏️ <strong>Edit mode.</strong> Click checkboxes to mark attendance — saves to cloud instantly.</div>
+  <div class="controls">
+    <input class="search-input" type="text" id="search" placeholder="Search name or matric number…">
+    <button class="filter-btn active" data-f="all">All</button>
+    <button class="filter-btn" data-f="ticked">Ticked ✓</button>
+    <button class="filter-btn" data-f="unticked">Not ticked</button>
+  </div>
+  <div class="stats">
+    <span class="stat total" id="s-all"></span>
+    <span class="stat ticked" id="s-yes"></span>
+    <span class="stat unticked" id="s-no"></span>
+  </div>
+  <div id="loading"><span class="spinner"></span> Fetching students from Firebase…</div>
+  <div class="scroll" id="tbl-wrap" style="display:none">
+    <table>
+      <thead><tr>
+        <th class="tick-cell">✓</th>
+        <th>S/N</th><th>Name</th><th>Matric No.</th><th>Status</th>
+        <th id="th-action" style="display:none;width:60px"></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- DASHBOARD PANEL -->
+<div id="dashboard">
+  <div class="dash-panel">
+    <div class="dash-header">
+      <h2>⚙️ Admin Dashboard</h2>
+      <button class="dash-close" onclick="closeDash()">✕</button>
+    </div>
+    <div class="dash-body">
+
+      <!-- Online Now -->
+      <div class="dash-section">
+        <h3>🟢 Online Now</h3>
+        <div class="online-list" id="online-list"><div class="empty">Loading…</div></div>
+      </div>
+
+      <!-- Student Manager -->
+      <div class="dash-section">
+        <h3>
+          🎓 Students
+          <span id="student-count" style="font-size:11px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0"></span>
+        </h3>
+        <input class="student-search" type="text" id="smgr-search" placeholder="Filter students…" oninput="renderStudentMgr()">
+        <div class="student-mgr-list" id="smgr-list"><div class="empty"><span class="spinner"></span></div></div>
+        <div class="add-student-form" id="add-student-form">
+          <div class="row">
+            <input type="text" id="as-name" placeholder="Full name (SURNAME FIRST)">
+            <input type="text" id="as-matric" placeholder="Matric No. (or —)">
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost btn-sm" style="flex:1" onclick="toggleAddStudent(false)">Cancel</button>
+            <button class="btn btn-primary btn-sm" style="flex:1" id="as-btn" onclick="submitAddStudent()">Add Student</button>
+          </div>
+          <div class="err-msg" id="as-err" style="margin-top:8px"></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="show-add-btn" onclick="toggleAddStudent(true)" style="margin-top:10px;width:100%">➕ Add Student</button>
+      </div>
+
+      <!-- Editor Accounts -->
+      <div class="dash-section">
+        <h3>👥 Editor Accounts</h3>
+        <div class="users-list" id="users-list"><div class="empty">Loading…</div></div>
+        <div style="margin-top:12px">
+          <div class="create-form" id="create-form">
+            <div class="row">
+              <input type="text" id="cf-name" placeholder="Display name">
+              <input type="email" id="cf-email" placeholder="Email">
+            </div>
+            <div class="row" style="margin-top:8px">
+              <input type="password" id="cf-pass" placeholder="Password (min 6)">
+              <select id="cf-role" style="flex:1;min-width:120px;height:36px;padding:0 10px;font-size:13px;border:1px solid var(--border-strong);border-radius:6px;background:#fff">
+                <option value="editor">Editor</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-ghost btn-sm" style="flex:1" onclick="toggleCreateForm(false)">Cancel</button>
+              <button class="btn btn-primary btn-sm" style="flex:1" id="cf-btn" onclick="submitCreateUser()">Create Account</button>
+            </div>
+            <div class="err-msg" id="cf-err" style="margin-top:8px"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="show-create-btn" onclick="toggleCreateForm(true)" style="margin-top:8px;width:100%">➕ Create New User</button>
+        </div>
+      </div>
+
+      <!-- Audit Log -->
+      <div class="dash-section">
+        <h3>📋 Audit Log</h3>
+        <div class="log-list" id="log-list"><div class="empty">Loading…</div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  createUserWithEmailAndPassword, updateProfile
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, deleteDoc,
+  collection, onSnapshot, addDoc, query, orderBy, limit,
+  serverTimestamp, writeBatch, getDocs
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+const app  = initializeApp({
+  apiKey:"AIzaSyCxABUeB2jp2vEdP7dyUSAhJgQq8B1s-t8",
+  authDomain:"amcos-payment.firebaseapp.com",
+  projectId:"amcos-payment",
+  storageBucket:"amcos-payment.firebasestorage.app",
+  messagingSenderId:"257561818420",
+  appId:"1:257561818420:web:0972af8db5ad0f3e0fa161"
+});
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// ── BASE SEED DATA (only used once to populate Firestore) ──
+const SEED = [
+  {n:"ABDUL-AZEEZ ABDUL-SAMAD ADESINA",u:"2025003928",t:true},
+  {n:"ABDUL-AZEEZ ROFIAT OLUWANIFEMI",u:"2025005263",t:true},
+  {n:"ABDULRAHEEM ABDULSAMAD BUKOLA",u:"—",t:true},
+  {n:"ABDULWASIU AL-AMEEN OMOGORIOLA",u:"2025003586",t:false},
+  {n:"ABEGUNDE RICHARD ABIODUN",u:"2025001392",t:true},
+  {n:"ABIOYE KEHINDE MATTHEW",u:"2025001445",t:true},
+  {n:"ABOLADE SUCCESS OLUWAFERANMI",u:"2025006594",t:true},
+  {n:"ADARAMOLA TEMILADE ABIODUN",u:"2025010741",t:true},
+  {n:"ADEAGBO ADENIYI EMMANUEL",u:"2025003910",t:false},
+  {n:"ADEAGBO RAHMAT OLANIKE",u:"2025006283",t:false},
+  {n:"ADEBAYO BOLAJI COMFORT",u:"2025008623",t:true},
+  {n:"ADEBAYO NAHEEM OLAMILEKAN",u:"2025004745",t:true},
+  {n:"ADEDEJI ADEOTAN OLUWAFERANMI",u:"—",t:true},
+  {n:"ADEDEJI QUYUM ADEYINKA",u:"2025004832",t:true},
+  {n:"ADEDOKUN KEHINDE JANET",u:"2025003949",t:true},
+  {n:"ADEDOKUN MOYINOLUWA BLESSING",u:"2025005839",t:false},
+  {n:"ADEGBITE OPEYEMI BARAKAT",u:"2025007277",t:true},
+  {n:"ADEGBOYEGA ZION OLUWASEYI",u:"2025001993",t:true},
+  {n:"ADEGOKE CLEMENTINA TIWALADE",u:"2025003755",t:false},
+  {n:"ADEGOKE MARIAM OMOLARA",u:"2025009408",t:true},
+  {n:"ADEKOJO ADEOLA ELIZABETH",u:"2025002185",t:true},
+  {n:"ADEKOLA ABDULLAHI AYOMIDE",u:"2025003541",t:true},
+  {n:"ADEKOLA OLUWATOBILOBA PRECIOUS",u:"2025002999",t:true},
+  {n:"ADELEKE AISHAT BOLUWATIFE",u:"2025005860",t:false},
+  {n:"ADELEKE MARY OLAYEMI",u:"2025002048",t:true},
+  {n:"ADEMOLA BOSE",u:"2025010688",t:false},
+  {n:"ADENIYI AMINAT OYEYEMI",u:"2024012043",t:false},
+  {n:"ADENIYI MARY KEHINDE",u:"2025008109",t:true},
+  {n:"ADEOYE ENOCH OLUWATOBILOBA",u:"2025004148",t:true},
+  {n:"ADEPOJU IDRIS OLADEJI",u:"2025010259",t:true},
+  {n:"ADEREMI PRECIOUS ALIYAH",u:"2025006507",t:true},
+  {n:"ADEROJU OPEYEMI GRACE",u:"2025005007",t:true},
+  {n:"ADERONMU KABIRAT ADEDOYIN",u:"2025004889",t:true},
+  {n:"ADESEUN AMUDALAT ADEBAKE",u:"2025009175",t:true},
+  {n:"ADESINA CHRISTIANA ESTHER",u:"2025005712",t:false},
+  {n:"ADESINA ROQEEBAT ADEDOLAPO",u:"2025010463",t:true},
+  {n:"ADESIYAN ADESEWA PRAISE",u:"2025008499",t:true},
+  {n:"ADESOLA ABDULLAHI ADEWALE",u:"2025002322",t:false},
+  {n:"ADESOLA ALIYAH ENIOLA",u:"2025002491",t:false},
+  {n:"ADESOYE UNIQUE CHRISTIANAH",u:"2025008828",t:false},
+  {n:"ADETUNJI EBUN-OLORUN ADETOLA",u:"2025008551",t:true},
+  {n:"ADEWALE IDOWU STEPHEN",u:"2025006264",t:true},
+  {n:"ADEWALE MARY OLUWAPELUMI",u:"2025007288",t:false},
+  {n:"ADEWUYI OLAMIDE ROFIAT",u:"2025005956",t:true},
+  {n:"ADEYEMI BISOLA IFEOLUWA",u:"2025005894",t:true},
+  {n:"ADEYEMO DEBORAH OLUBUKOLA",u:"2025005120",t:true},
+  {n:"ADEYEMO ESTHER MORENIKEJI",u:"2025001178",t:true},
+  {n:"ADEYEMO PEACE AYOMIKUN",u:"2025001545",t:false},
+  {n:"ADEYEMO TEMITOPE REBECCA",u:"2025005383",t:true},
+  {n:"ADEYEMO VICTORIA OLUWABUKUNMI",u:"2025009708",t:true},
+  {n:"ADEYINKA ESTHER AYOMIDE",u:"2025004190",t:true},
+  {n:"ADEYINKA ESTHER TOLUWANI",u:"2025002474",t:true},
+  {n:"ADIO OLUWAFERANMI MARY",u:"2025003560",t:false},
+  {n:"ADISA FIYINFOLUWA COMFORT",u:"2025007880",t:true},
+  {n:"ADISA OLUWASEGUN ELISAH",u:"2025007628",t:true},
+  {n:"AFOLABI EZEKIEL SEGUN",u:"2025005332",t:true},
+  {n:"AFOLABI OMOBOLABO",u:"2025010740",t:false},
+  {n:"AFOLABI TEMITOPE MOTUNRAYO",u:"2025001747",t:true},
+  {n:"AGBAJE MISTURAH MOYOSOREOLUWA",u:"2025004408",t:false},
+  {n:"AGBOOLA SAMSON",u:"2025010705",t:false},
+  {n:"AGHALITEI WISDOM OTHUKE",u:"2025010350",t:false},
+  {n:"AJADI FESTUS GOODLUCK",u:"2025005763",t:true},
+  {n:"AJANI AYOMIDE FLORENCE",u:"2025006479",t:true},
+  {n:"AJAO ISRAEL OLUDOYIN",u:"2025004236",t:true},
+  {n:"AJAYI DANIEL AYOMIDE",u:"2025001365",t:false},
+  {n:"AJAYI JOHN OLUWASEGUN",u:"2025003887",t:true},
+  {n:"AJIBOYE KHALEED OLUWAJUWONLO",u:"2025006123",t:false},
+  {n:"AJIBOYE MERCY OYEFUNKE",u:"2025001806",t:true},
+  {n:"AJIM DANIEL IFEANYI",u:"2025003825",t:true},
+  {n:"AJUFO FAVOUR AWELE",u:"2025010524",t:false},
+  {n:"AKANBI GLORIA ANUOLUWAPO",u:"2025000790",t:true},
+  {n:"AKINADE OLUWAPELUMI",u:"2025010728",t:false},
+  {n:"AKINBOLA ALAMEEN AYOMIDE",u:"2025004166",t:true},
+  {n:"AKINGBOYE ELIZABETH ADEOLA",u:"2025001155",t:true},
+  {n:"AKINPELU MATTHEW MUYIWA",u:"2025009666",t:true},
+  {n:"AKINPELU OLAMIDE SEMILORE",u:"2025001867",t:true},
+  {n:"AKINRINOLA HABEEBAT OYINKANSOLA",u:"2025006440",t:false},
+  {n:"AKINRINWALE ESTHER TOLULOPE",u:"2025008778",t:true},
+  {n:"AKINSHOLA TAOFEEQ AKINOLA",u:"—",t:true},
+  {n:"AKINTUNDE EMMANUEL OLUSEYI",u:"2025009724",t:false},
+  {n:"ALABI AFOLABI ABDULMUHEEN",u:"2025001052",t:true},
+  {n:"ALABI EUNICE OLUWABUSOLAMI",u:"2025009299",t:true},
+  {n:"ALABI JEDIDAH OLUWASOLAMIPE",u:"—",t:true},
+  {n:"ALABI MARIAM AJOKE",u:"2025001140",t:true},
+  {n:"ALALADE FAVOUR OLAPEJU",u:"2025003886",t:true},
+  {n:"ALAO EMMANUELLA OLUAMARACHI",u:"2025004529",t:true},
+  {n:"ALESHINLOYE BASIT OYINDAMOLA",u:"2025007693",t:true},
+  {n:"ALIMI ISRAEL MOYOSORE",u:"—",t:false},
+  {n:"ALOBALOKE ROHEEM OLAJIDE",u:"2025007785",t:true},
+  {n:"AMOO KAFILAT OLAYINKA",u:"2025007493",t:true},
+  {n:"AMUSAN BOLUWATIFE ELIZABETH",u:"2025001411",t:true},
+  {n:"ANIMASHAUN MUHAMMAD ABIODUN",u:"2025001354",t:true},
+  {n:"ARASI BAMIDELE OLAYIWOLA",u:"2025003921",t:false},
+  {n:"AREMU AYOMIDE ANDREW",u:"2025008550",t:true},
+  {n:"ASAA AYOMIDE OLUWABUKUNMI",u:"—",t:true},
+  {n:"ASHIMOLOWO HABEEBAT ABIKE",u:"2025009055",t:false},
+  {n:"ASIYANBI HAMZAT OYENIYI",u:"2025006252",t:true},
+  {n:"ATINSOLA TAOFEEK AKINTOLA",u:"2025003422",t:false},
+  {n:"AYANLEKE DARASIMI AYANFUNKE",u:"2025007044",t:true},
+  {n:"AYANNIYI BISOLA LYDIA",u:"2025004338",t:false},
+  {n:"AYANYIOLA EMMANUEL TEMITOPE",u:"2025010204",t:false},
+  {n:"AYODELE DEBORAH OLUWANIFEMI",u:"2025010491",t:true},
+  {n:"AYOOLA FELICIA",u:"2025010709",t:false},
+  {n:"AZEEZ AISHAT FUNMILOLA",u:"2025001908",t:true},
+  {n:"AZEEZ YUSUF OLALEKAN",u:"2025003291",t:false},
+  {n:"BADMUS MARIAM FOLASHADE",u:"2025007386",t:true},
+  {n:"BALOGUN ABDUMALIQ GBOLAHAN",u:"2025000725",t:true},
+  {n:"BALOGUN ROHEEMAT OPEYEMI",u:"2025006881",t:true},
+  {n:"BELLO JAMALDEEN OLUWAMAYOMIKUN",u:"2024006982",t:false},
+  {n:"BELLO SERINAT OLAMIDE",u:"2025008266",t:true},
+  {n:"BUSARI ENIOLA AISHAT",u:"2025004102",t:true},
+  {n:"DICKSON BLESSING AYOMIDE",u:"2025009220",t:false},
+  {n:"DIENG ABDULLAHI AYOMIDE",u:"2025007855",t:true},
+  {n:"EMMANUEL CHRISTABEL PROMISE",u:"2025004405",t:true},
+  {n:"ERINWUSI AMINAT OLAKUNMI",u:"2025003994",t:false},
+  {n:"FAKUNLE JULIUS TEMITAYO",u:"2025007474",t:true},
+  {n:"FALOLA GOODNESS ADEYIMIKA",u:"2025010723",t:true},
+  {n:"FAMADEJI TOMILOLA JOY",u:"2025004528",t:true},
+  {n:"FASHIPE OLUWAGBEMISOLA OLASEGE",u:"2025009989",t:true},
+  {n:"FATAI ABIMBOLA ADEJOKE",u:"2025009080",t:true},
+  {n:"FEYIJI ELISHA OLUWAPELUMI",u:"2025004342",t:true},
+  {n:"FOLORUNSHO PRAISE OREOLUWA",u:"2025007576",t:false},
+  {n:"GANIYU AJIBOLA HAMMED",u:"2025004309",t:true},
+  {n:"GBADEBO ESTHER OYINKANSOLA",u:"2025008930",t:false},
+  {n:"GBADERO SAMSON TOLUWALASE",u:"2025010279",t:true},
+  {n:"GIWA ZAINAB OLAJUMOKE",u:"2025009760",t:true},
+  {n:"HAMMED NAFISAT OLABISI",u:"2025007493",t:true},
+  {n:"HAMMED ZAINAB OPEYEMI",u:"2025003914",t:true},
+  {n:"HAZZAN EMMANUEL OLATUNBOSUN",u:"2025010020",t:false},
+  {n:"IBRAHIM AYISHAT AYOTEJU",u:"2025002050",t:true},
+  {n:"IDOWU OLUWASEYIFUNMI GRACE",u:"—",t:false},
+  {n:"IDOWU PRECIOUS OPEYEMI",u:"2025010371",t:true},
+  {n:"IGBALAJOBI JAMIU GBOLAHAN",u:"2025001929",t:false},
+  {n:"ILORI PRECIOUS OLAMIDE",u:"2025005782",t:true},
+  {n:"ILUFOYE WINIFRED OLANIKE",u:"2025004441",t:true},
+  {n:"ISHAQ MUIZAT OMOLARA",u:"2025002951",t:true},
+  {n:"ISHOLA PAMILERINAYO NNEKA",u:"2025011012",t:true},
+  {n:"ISMAIL AMINAT AKOREDE",u:"2025001661",t:true},
+  {n:"JIBREEL WAKILAT YEMISI",u:"2025005174",t:true},
+  {n:"JIMOH SOFIAT ADENIKE",u:"2025006793",t:true},
+  {n:"JINADU AMEERA OJUOLAPE",u:"2025003773",t:true},
+  {n:"JOSEPH OREOLUWA OLAWUMI",u:"2024012640",t:false},
+  {n:"KABIRU FATHIA AYOMIDE",u:"2025003120",t:true},
+  {n:"KEHINDE AKOREDE ZAINAB",u:"2025008823",t:true},
+  {n:"KEHINDE LYDIA TIRENIOLUWA",u:"2025008805",t:true},
+  {n:"KOMOLAFE VICTOR AKOREDE",u:"2025006627",t:true},
+  {n:"LIASU ADEBAYO QUDUS",u:"2025001546",t:true},
+  {n:"MEROTIWON IREMIDE FOLAJUWON",u:"2025007338",t:true},
+  {n:"MICHAEL EMMANUEL OMOKOME",u:"2025001544",t:true},
+  {n:"MOLOMO SAMUEL OLUWAMAYOWA",u:"2025004037",t:true},
+  {n:"MUDASHIRU AISHAT OMOWUMI",u:"2025007086",t:false},
+  {n:"MUHAMMED KHADIJAT AYOMIDE",u:"2025010660",t:false},
+  {n:"MURTADOH IBRAHEEM ADEKUNLE",u:"2025008024",t:true},
+  {n:"MUSBAU MUJEEB AREMU",u:"2025006879",t:true},
+  {n:"MUSLIM FAWAS MAYOWA",u:"2025003472",t:true},
+  {n:"MUSTAPHA RAHEEMAT OMOLOLA",u:"2025004981",t:true},
+  {n:"NAPOLEON CHIOMA GIFT",u:"2025005249",t:false},
+  {n:"OBIDEYI TOLUWANI ESTHER",u:"2025000858",t:true},
+  {n:"ODEJOBI AISHAT ADESEWA",u:"2025000750",t:true},
+  {n:"ODEKUNLE UTHMAN AYOMIDE",u:"2025010793",t:true},
+  {n:"ODILI IRENE OZIOMA",u:"2025006339",t:true},
+  {n:"ODUOLA LYDIA AYOMIDE",u:"2025005008",t:true},
+  {n:"OGUNDARE BLESSING OLUWANIFEMI",u:"2025007539",t:true},
+  {n:"OGUNDIJO FRANCIS OLUWASOGO",u:"2025005429",t:true},
+  {n:"OGUNDIMU TEMINIJESU ADEOLA",u:"2025001950",t:true},
+  {n:"OGUNDIPE DORCAS OLUWATIMILEYIN",u:"2025003909",t:false},
+  {n:"OGUNDIPE ELIZABETH OPEYEMI",u:"2025010082",t:true},
+  {n:"OGUNFEMI DORCAS ABISOLA",u:"2025008992",t:true},
+  {n:"OGUNIRAN DORCAS EBUNOLUWA",u:"2025005029",t:false},
+  {n:"OGUNNIYI EUNICE ADEOLA",u:"2025004149",t:true},
+  {n:"OGUNSOLA OLUWATOFUNMI TITILOPE",u:"2025001654",t:true},
+  {n:"OGUNYALE DAVID AYOMIDE",u:"2025008400",t:true},
+  {n:"OJEDELE ENIOLA ERISEYI",u:"2025009421",t:true},
+  {n:"OJEWUNMI AYOMIDE SOLOMON",u:"2025002521",t:true},
+  {n:"OJOBE EMMANUEL TEMILOPE",u:"2025002022",t:true},
+  {n:"OJUOLAPE BOLATITO TOBILOBA",u:"2025001093",t:true},
+  {n:"OLADEJO ESTHER OYINDAMOLA",u:"2025003170",t:true},
+  {n:"OLADELE ELIZABETH IBIDUNNI",u:"2025004839",t:false},
+  {n:"OLADELE PRAISE SARAH",u:"2025010585",t:true},
+  {n:"OLADIPO EBUNOLUWA ESTHER",u:"2025002429",t:false},
+  {n:"OLADIPO KHADIJAT IDOWU",u:"2025003853",t:false},
+  {n:"OLADOKUN GOODNESS OLAOLUWA",u:"2025006298",t:true},
+  {n:"OLADOTUN SOFIAT TOMILOLA",u:"2025008770",t:true},
+  {n:"OLAITAN RHODA OLUWASEYI",u:"2025001471",t:true},
+  {n:"OLAIYA BOLUWATIFE FAITH",u:"2025005784",t:true},
+  {n:"OLAJIDE EMMANUEL OLUWADEMILADE",u:"2025005311",t:true},
+  {n:"OLAJIRE ELIZABETH IYANUOLUWA",u:"2025007115",t:true},
+  {n:"OLAKANMI OLUWAKEMISOLA",u:"2025010713",t:true},
+  {n:"OLALERE OLUDAYO MICHAEL",u:"2025006823",t:true},
+  {n:"OLANIYI FAVOUR OLUWADAMILOLA",u:"2025007621",t:false},
+  {n:"OLAREWAJU TOBILOBA EMMANUEL",u:"2025001922",t:true},
+  {n:"OLASIYAN GIDEON ADEWALE",u:"2025001657",t:false},
+  {n:"OLAYINKA OLAJUMOKE ADEOLA",u:"2025006744",t:true},
+  {n:"OLAYIWOLA GRACE AYOMIDE",u:"2025006493",t:true},
+  {n:"OLAYIWOLA MARIAM ASABI",u:"2025010045",t:true},
+  {n:"OLODUDE PRECIOUS PELUMI",u:"2025007719",t:true},
+  {n:"OLORUNPELUMI EUNICE OLORUNSOGO",u:"2025002212",t:true},
+  {n:"OLUDELE ELIZABETH IBIDUNNI",u:"—",t:false},
+  {n:"OLUGBEMI GLORIA OLABANJI",u:"2025006671",t:true},
+  {n:"OLUTAYO MOYINOLUWA IDOWU",u:"2025002304",t:true},
+  {n:"OLUYEMI SAMUEL OLUWAFERANMI",u:"—",t:true},
+  {n:"OMOLABI ENIOLA NOIMOT",u:"2025010454",t:true},
+  {n:"OPADIYA REBECCA OYINKANSOLA",u:"—",t:false},
+  {n:"OPOOLA QUYUM ABIOLA",u:"2025002187",t:true},
+  {n:"ORIMOGUNJE OLUWATOSIN AYOMIDE",u:"2025006522",t:true},
+  {n:"ORNAH MARGARET FAVOUR",u:"2025008406",t:false},
+  {n:"OSAKWE FIYINFOLUWA CHIYEM",u:"2025010157",t:true},
+  {n:"OWANIYI YUSUF ADEMOLA",u:"2025004407",t:false},
+  {n:"OYEDEJI AYOKANMI OYESINA",u:"2025003377",t:true},
+  {n:"OYEDIJI FELICIA ENIOLA",u:"2025009157",t:true},
+  {n:"OYEDOKUN DEBORAH OYEKEMI",u:"2025000682",t:true},
+  {n:"OYEKOLA GLORY JESULOWO",u:"2025004343",t:false},
+  {n:"OYELAMI EMMANUEL OLUWASEYI",u:"2025010341",t:false},
+  {n:"OYETUNJI RAMAT OLAYINKA",u:"2025002974",t:true},
+  {n:"OYEYEBI TEMILOLUWA LYDIA",u:"2025010435",t:true},
+  {n:"RAHMAN BASIT ADEYINKA",u:"2025006858",t:true},
+  {n:"RALPH OMOTOLANI OLUWATUNMIKE",u:"2025006427",t:false},
+  {n:"SALAHUDEEN AISHAT OLAYINKA",u:"2025004064",t:false},
+  {n:"SALAM BALIKIS OMODOLAPO",u:"—",t:true},
+  {n:"SALAM KEHINDE SAKIRAT",u:"2025003601",t:false},
+  {n:"SALAWU ABDULSAMAD SIJIBOMI",u:"2025005870",t:true},
+  {n:"SAMUEL FAITHFULNESS AFOTSEAYE",u:"2025003631",t:true},
+  {n:"SANUSI REBECCA OLUWABUKUNMI",u:"2025003016",t:true},
+  {n:"SHITTU BALIKIS ABENI",u:"2025001200",t:true},
+  {n:"SHITTU ZAINAB ADESEWA",u:"2025007729",t:true},
+  {n:"SIKIRU ROFIAT OPEYEMI",u:"2025001018",t:true},
+  {n:"SOKALE OKIKIJESU ESTHER",u:"2025002511",t:true},
+  {n:"TAIWO ZAINAB YEWANDE",u:"2025001180",t:true},
+  {n:"TELLA ISRAEL ADEMIDE",u:"2025001143",t:true},
+  {n:"TIJANI MARIAM OYINDOLAPO",u:"2025004252",t:true},
+  {n:"USMAN GBEMISOLA MOTUNRAYO",u:"2025005811",t:true},
+  {n:"WAHEED OMOTOLA VIVIAN",u:"2025001025",t:false},
+  {n:"WASIU KAFAYAT",u:"2025010761",t:false},
+  {n:"YUNUS SUKURAT ADEWUMI",u:"2025001886",t:true},
+  {n:"ZUBAIR ABDULSAMAD ENIOLA",u:"2025003231",t:true}
+];
+
+// ── STATE ──
+let students = [];       // live from Firestore [{id, n, u, t, order}]
+let currentUser = null, currentRole = null;
+let filterVal = 'all', searchQ = '';
+let dashOpen = false;
+let smgrQ = '';
+
+// ── HELPERS ──
+function syncBar(msg, type='ok'){
+  const b = document.getElementById('syncbar');
+  b.textContent = msg; b.className = type;
+  if(type==='ok') setTimeout(()=>{b.className='';},2800);
+}
+function fmtTime(ts){
+  if(!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+async function auditLog(action, detail){
+  if(!currentUser) return;
+  try{
+    await addDoc(collection(db,'audit'),{
+      uid:currentUser.uid,
+      name:currentUser.displayName||currentUser.email,
+      action, detail, at:serverTimestamp()
+    });
+  }catch(e){}
+}
+
+// ── SEED: push SEED data to Firestore if collection is empty ──
+async function seedIfEmpty(){
+  const snap = await getDocs(collection(db,'students'));
+  if(!snap.empty) return; // already seeded
+  syncBar('⚙️ First run — seeding student list…','saving');
+  const batch = writeBatch(db);
+  SEED.forEach((s,i)=>{
+    const ref = doc(collection(db,'students'));
+    batch.set(ref,{n:s.n, u:s.u, t:s.t, order:i, addedAt:serverTimestamp()});
+  });
+  await batch.commit();
+  syncBar('✅ Students loaded from seed data','ok');
+}
+
+// ── REAL-TIME STUDENTS LISTENER ──
+onSnapshot(
+  query(collection(db,'students'), orderBy('order','asc')),
+  snap => {
+    students = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    document.getElementById('loading').style.display='none';
+    document.getElementById('tbl-wrap').style.display='block';
+    render();
+    if(dashOpen) renderStudentMgr();
+    document.getElementById('student-count').textContent = students.length+' students';
+  },
+  err => {
+    // Firestore rules may block unauthenticated reads — fall through gracefully
+    document.getElementById('loading').textContent='⚠️ Could not load students. Try signing in.';
+  }
+);
+
+// ── AUTH STATE ──
+onAuthStateChanged(auth, async user => {
+  if(user){
+    currentUser = user;
+    const snap = await getDoc(doc(db,'users',user.uid));
+    currentRole = snap.exists() ? snap.data().role : 'editor';
+    activateEditor(user, currentRole);
+    document.getElementById('login-overlay').classList.add('hidden');
+    await seedIfEmpty();
+  } else {
+    currentUser = null; currentRole = null;
+    deactivateEditor();
+    document.getElementById('login-overlay').classList.remove('hidden');
+    document.getElementById('auth-label').textContent='👁 Viewer (read-only)';
+  }
+});
+
+// ── LOGIN / LOGOUT ──
+window.doLogin = async function(){
+  const email = document.getElementById('li-email').value.trim();
+  const pass  = document.getElementById('li-pass').value;
+  const btn   = document.getElementById('li-btn');
+  const err   = document.getElementById('li-err');
+  err.style.display='none';
+  if(!email||!pass){err.textContent='Please fill in both fields.';err.style.display='block';return;}
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Signing in…';
+  try{
+    await signInWithEmailAndPassword(auth,email,pass);
+  }catch(e){
+    err.textContent = (e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'||e.code==='auth/user-not-found')
+      ? '❌ Incorrect email or password.' : '⚠️ '+e.message;
+    err.style.display='block';
+    btn.disabled=false; btn.textContent='Sign In';
+  }
+};
+document.getElementById('li-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+document.getElementById('li-email').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+
+window.skipLogin = function(){
+  document.getElementById('login-overlay').classList.add('hidden');
+  render();
+};
+
+window.doLogout = async function(){
+  if(currentUser){
+    try{
+      await setDoc(doc(db,'presence',currentUser.uid),{online:false,uid:currentUser.uid,name:currentUser.displayName||currentUser.email,role:currentRole,at:serverTimestamp()});
+      await auditLog('logout','Signed out');
+    }catch(e){}
+  }
+  await signOut(auth);
+};
+
+function activateEditor(user, role){
+  document.getElementById('auth-pill').className='auth-pill '+(role==='admin'?'admin':'editor');
+  document.getElementById('auth-label').textContent=(role==='admin'?'👑 Admin: ':'✏️ Editor: ')+(user.displayName||user.email);
+  document.getElementById('logout-btn').style.display='inline-block';
+  if(role==='admin'){
+    document.getElementById('dash-btn').style.display='inline-block';
+    document.getElementById('th-action').style.display='';
+  }
+  document.getElementById('edit-hint').classList.add('show');
+  document.getElementById('li-btn').disabled=false;
+  document.getElementById('li-btn').textContent='Sign In';
+  try{
+    setDoc(doc(db,'presence',user.uid),{online:true,uid:user.uid,name:user.displayName||user.email,role,at:serverTimestamp()});
+    auditLog('login','Signed in');
+  }catch(e){}
+  render();
+}
+function deactivateEditor(){
+  document.getElementById('auth-pill').className='auth-pill';
+  document.getElementById('logout-btn').style.display='none';
+  document.getElementById('dash-btn').style.display='none';
+  document.getElementById('th-action').style.display='none';
+  document.getElementById('edit-hint').classList.remove('show');
+  render();
+}
+
+// ── TOGGLE TICK ──
+window.toggleStudent = async function(id){
+  if(!currentUser) return;
+  const s = students.find(x=>x.id===id);
+  if(!s) return;
+  const newVal = !s.t;
+  syncBar('💾 Saving…','saving');
+  try{
+    await setDoc(doc(db,'students',id),{t:newVal},{merge:true});
+    await auditLog('tick',(newVal?'Ticked':'Unticked')+': '+s.n);
+    syncBar('✅ Saved','ok');
+  }catch(e){syncBar('⚠️ Save failed — check permissions','err');}
+};
+
+// ── REMOVE STUDENT (admin only, from table row) ──
+window.removeStudentRow = async function(id, name){
+  if(currentRole!=='admin') return;
+  if(!confirm(`Remove "${name}" from the list? This cannot be undone.`)) return;
+  try{
+    await deleteDoc(doc(db,'students',id));
+    await auditLog('removeStudent','Removed: '+name);
+    syncBar('🗑️ Removed: '+name,'ok');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+// ── RENDER MAIN TABLE ──
+function render(){
+  const q = searchQ.toLowerCase();
+  const rows = students.filter(s=>{
+    const mq = !q||(s.n+' '+s.u).toLowerCase().includes(q);
+    const mf = filterVal==='all'||(filterVal==='ticked'&&s.t)||(filterVal==='unticked'&&!s.t);
+    return mq&&mf;
+  });
+  const yes = rows.filter(r=>r.t).length;
+  document.getElementById('s-all').textContent='Total: '+rows.length;
+  document.getElementById('s-yes').textContent='Ticked: '+yes;
+  document.getElementById('s-no').textContent='Not ticked: '+(rows.length-yes);
+  const canEdit = !!currentUser;
+  const isAdmin = currentRole==='admin';
+  document.getElementById('tbody').innerHTML = rows.map((s,n)=>`
+    <tr style="${s.t?'background:rgba(22,163,74,.05)':'background:rgba(220,38,38,.04)'}">
+      <td class="tick-cell"><input type="checkbox" class="tick" ${s.t?'checked':''} ${canEdit?'':'disabled'} onchange="toggleStudent('${s.id}')"></td>
+      <td class="sn">${n+1}</td>
+      <td style="font-weight:500">${s.n}</td>
+      <td class="matric">${s.u}</td>
+      <td><span class="badge ${s.t?'yes':'no'}">${s.t?'✓ Ticked':'✗ Not ticked'}</span></td>
+      ${isAdmin?`<td><button class="del-row-btn" onclick="removeStudentRow('${s.id}','${s.n.replace(/'/g,"\\'")}')">✕ Remove</button></td>`:'<td></td>'}
+    </tr>`).join('');
+}
+
+document.getElementById('search').addEventListener('input',e=>{searchQ=e.target.value;render()});
+document.querySelectorAll('.filter-btn').forEach(b=>b.addEventListener('click',()=>{
+  filterVal=b.dataset.f;
+  document.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); render();
+}));
+
+// ── DASHBOARD ──
+window.openDash = function(){
+  dashOpen=true;
+  document.getElementById('dashboard').classList.add('open');
+  loadOnline(); loadUsers(); loadAudit(); renderStudentMgr();
+};
+window.closeDash = function(){
+  dashOpen=false;
+  document.getElementById('dashboard').classList.remove('open');
+};
+
+// close dashboard when clicking backdrop
+document.getElementById('dashboard').addEventListener('click',function(e){
+  if(e.target===this) closeDash();
+});
+
+// Online Now
+let onlineUnsub = null;
+function loadOnline(){
+  if(onlineUnsub) onlineUnsub();
+  onlineUnsub = onSnapshot(collection(db,'presence'), snap=>{
+    const list = document.getElementById('online-list');
+    const online = snap.docs.filter(d=>d.data().online).map(d=>d.data());
+    if(!online.length){list.innerHTML='<div class="empty">No one online right now.</div>';return;}
+    list.innerHTML = online.map(u=>`
+      <div class="online-item">
+        <span class="online-dot"></span>
+        <span class="online-name">${u.name}</span>
+        <span class="online-role ${u.role}">${u.role}</span>
+        <span class="online-time">${fmtTime(u.at)}</span>
+      </div>`).join('');
+  });
+}
+
+// Users List
+let usersUnsub = null;
+function loadUsers(){
+  if(usersUnsub) usersUnsub();
+  usersUnsub = onSnapshot(collection(db,'users'), snap=>{
+    const list = document.getElementById('users-list');
+    if(snap.empty){list.innerHTML='<div class="empty">No users yet.</div>';return;}
+    list.innerHTML = snap.docs.map(d=>{
+      const u=d.data();
+      return `<div class="user-row">
+        <span class="uname">${u.displayName||'—'}</span>
+        <span class="uemail">${u.email}</span>
+        <span class="urole ${u.role}">${u.role}</span>
+        ${u.uid!==currentUser?.uid
+          ?`<button class="btn btn-danger btn-xs" onclick="deleteUserAccount('${d.id}','${(u.displayName||u.email).replace(/'/g,"\\'")}')">Delete</button>`
+          :'<span style="font-size:11px;color:var(--text3)">(you)</span>'}
+      </div>`;
+    }).join('');
+  });
+}
+
+// Audit Log
+let auditUnsub = null;
+function loadAudit(){
+  if(auditUnsub) auditUnsub();
+  const icons={login:'🟢',logout:'🔴',tick:'✅',create:'➕',delete:'🗑️',addStudent:'🎓',removeStudent:'❌'};
+  auditUnsub = onSnapshot(
+    query(collection(db,'audit'), orderBy('at','desc'), limit(60)),
+    snap=>{
+      const list=document.getElementById('log-list');
+      if(snap.empty){list.innerHTML='<div class="empty">No activity yet.</div>';return;}
+      list.innerHTML = snap.docs.map(d=>{
+        const r=d.data();
+        return `<div class="log-item ${r.action}">
+          <span class="log-icon">${icons[r.action]||'📌'}</span>
+          <span class="log-text"><strong>${r.name}</strong> — ${r.detail}</span>
+          <span class="log-time">${fmtTime(r.at)}</span>
+        </div>`;
+      }).join('');
+    }
+  );
+}
+
+// ── STUDENT MANAGER (dashboard) ──
+window.renderStudentMgr = function(){
+  const q = (document.getElementById('smgr-search').value||'').toLowerCase();
+  const list = document.getElementById('smgr-list');
+  const filtered = students.filter(s=>!q||(s.n+' '+s.u).toLowerCase().includes(q));
+  if(!filtered.length){list.innerHTML='<div class="empty">No students found.</div>';return;}
+  list.innerHTML = filtered.map(s=>`
+    <div class="smgr-row">
+      <span class="smgr-name">${s.n}</span>
+      <span class="smgr-matric">${s.u}</span>
+      <button class="btn btn-danger btn-xs" onclick="removeStudentDash('${s.id}','${s.n.replace(/'/g,"\\'")}')">✕</button>
+    </div>`).join('');
+  document.getElementById('student-count').textContent = students.length+' students';
+};
+
+window.removeStudentDash = async function(id, name){
+  if(!confirm(`Remove "${name}"?`)) return;
+  try{
+    await deleteDoc(doc(db,'students',id));
+    await auditLog('removeStudent','Removed: '+name);
+    syncBar('🗑️ Removed: '+name,'ok');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+window.toggleAddStudent = function(show){
+  document.getElementById('add-student-form').style.display = show?'block':'none';
+  document.getElementById('show-add-btn').style.display = show?'none':'block';
+  document.getElementById('as-err').style.display='none';
+  if(show) document.getElementById('as-name').focus();
+};
+
+window.submitAddStudent = async function(){
+  const name   = document.getElementById('as-name').value.trim().toUpperCase();
+  const matric = document.getElementById('as-matric').value.trim()||'—';
+  const btn    = document.getElementById('as-btn');
+  const err    = document.getElementById('as-err');
+  err.style.display='none';
+  if(!name){err.textContent='Name is required.';err.style.display='block';return;}
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Adding…';
+  try{
+    const maxOrder = students.length ? Math.max(...students.map(s=>s.order||0))+1 : 0;
+    await addDoc(collection(db,'students'),{
+      n:name, u:matric, t:false, order:maxOrder, addedAt:serverTimestamp()
+    });
+    await auditLog('addStudent','Added: '+name+' ('+matric+')');
+    syncBar('✅ '+name+' added','ok');
+    document.getElementById('as-name').value='';
+    document.getElementById('as-matric').value='';
+    toggleAddStudent(false);
+  }catch(e){
+    err.textContent='Error: '+e.message;
+    err.style.display='block';
+  }
+  btn.disabled=false; btn.textContent='Add Student';
+};
+
+// ── CREATE USER ──
+window.toggleCreateForm = function(show){
+  document.getElementById('create-form').style.display=show?'block':'none';
+  document.getElementById('show-create-btn').style.display=show?'none':'block';
+  document.getElementById('cf-err').style.display='none';
+};
+
+window.submitCreateUser = async function(){
+  const name  = document.getElementById('cf-name').value.trim();
+  const email = document.getElementById('cf-email').value.trim();
+  const pass  = document.getElementById('cf-pass').value;
+  const role  = document.getElementById('cf-role').value;
+  const btn   = document.getElementById('cf-btn');
+  const err   = document.getElementById('cf-err');
+  err.style.display='none';
+  if(!name||!email||!pass){err.textContent='All fields required.';err.style.display='block';return;}
+  if(pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Creating…';
+  try{
+    const cred = await createUserWithEmailAndPassword(auth,email,pass);
+    await updateProfile(cred.user,{displayName:name});
+    await setDoc(doc(db,'users',cred.user.uid),{uid:cred.user.uid,displayName:name,email,role,createdAt:serverTimestamp()});
+    await auditLog('create','Created '+role+' account: '+name+' ('+email+')');
+    document.getElementById('cf-name').value='';
+    document.getElementById('cf-email').value='';
+    document.getElementById('cf-pass').value='';
+    toggleCreateForm(false);
+    syncBar('✅ Account created for '+name,'ok');
+    alert('Account created!\n\nEmail: '+email+'\nPassword: (as set)\nRole: '+role+'\n\nShare these credentials with the user.');
+  }catch(e){
+    err.textContent=e.code==='auth/email-already-in-use'?'Email already in use.':'Error: '+e.message;
+    err.style.display='block';
+  }
+  btn.disabled=false; btn.textContent='Create Account';
+};
+
+// ── DELETE USER ACCOUNT ──
+window.deleteUserAccount = async function(uid, name){
+  if(!confirm('Delete account for "'+name+'"? Cannot be undone.')) return;
+  try{
+    await deleteDoc(doc(db,'users',uid));
+    await deleteDoc(doc(db,'presence',uid));
+    await auditLog('delete','Deleted account: '+name);
+    syncBar('🗑️ Account deleted: '+name,'ok');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+</script>
+
+</body>
+</html>
