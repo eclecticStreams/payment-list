@@ -585,18 +585,48 @@ async function auditLog(action, detail){
   }catch(e){}
 }
 
-// ── SEED: push SEED data to Firestore if collection is empty ──
+// ── SEED: push SEED data to Firestore in chunks of 100 ──
 async function seedIfEmpty(){
-  const snap = await getDocs(collection(db,'students'));
-  if(!snap.empty) return; // already seeded
-  syncBar('⚙️ First run — seeding student list…','saving');
-  const batch = writeBatch(db);
-  SEED.forEach((s,i)=>{
-    const ref = doc(collection(db,'students'));
-    batch.set(ref,{n:s.n, u:s.u, t:s.t, order:i, addedAt:serverTimestamp()});
-  });
-  await batch.commit();
-  syncBar('✅ Students loaded from seed data','ok');
+  // Check a sentinel doc first — faster than counting the whole collection
+  const sentinelRef = doc(db,'meta','seeded');
+  try{
+    const sentinelSnap = await getDoc(sentinelRef);
+    if(sentinelSnap.exists()) return; // already seeded
+  }catch(e){
+    console.warn('Seed check failed:',e); return;
+  }
+
+  const loadingEl = document.getElementById('loading');
+  loadingEl.style.display='block';
+  loadingEl.innerHTML='<span class="spinner"></span> Seeding students into Firebase… (first time only)';
+  document.getElementById('tbl-wrap').style.display='none';
+  syncBar('⚙️ First run — writing '+SEED.length+' students to Firebase…','saving');
+
+  try{
+    // Write in chunks of 100 to stay well within Firestore limits
+    const CHUNK = 100;
+    for(let i=0;i<SEED.length;i+=CHUNK){
+      const chunk = SEED.slice(i, i+CHUNK);
+      const batch = writeBatch(db);
+      chunk.forEach((s,j)=>{
+        const ref = doc(collection(db,'students'));
+        batch.set(ref,{n:s.n, u:s.u, t:s.t, order:i+j, addedAt:serverTimestamp()});
+      });
+      await batch.commit();
+      const done = Math.min(i+CHUNK, SEED.length);
+      loadingEl.innerHTML=`<span class="spinner"></span> Seeding… ${done}/${SEED.length} students written`;
+      syncBar(`⚙️ Writing students… ${done}/${SEED.length}`,'saving');
+    }
+    // Write sentinel so we never seed again
+    await setDoc(sentinelRef,{seededAt:serverTimestamp(), count:SEED.length});
+    syncBar('✅ All '+SEED.length+' students loaded successfully','ok');
+    loadingEl.style.display='none';
+    document.getElementById('tbl-wrap').style.display='block';
+  }catch(e){
+    console.error('Seed error:',e);
+    loadingEl.innerHTML='⚠️ Seeding failed: '+e.message+'. Check Firestore rules and try refreshing.';
+    syncBar('⚠️ Seeding failed — '+e.message,'err');
+  }
 }
 
 // ── REAL-TIME STUDENTS LISTENER ──
@@ -934,5 +964,64 @@ window.deleteUserAccount = async function(uid, name){
 
 </script>
 
+<!--
+==========================================================
+FIRESTORE SECURITY RULES
+Paste into: Firebase Console → Firestore → Rules → Publish
+==========================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Meta (seed sentinel): public read, admin write
+    match /meta/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Students: public read, any editor can tick, only admin can add/delete
+    match /students/{id} {
+      allow read: if true;
+      allow update: if isSignedIn();
+      allow create, delete: if isAdmin();
+    }
+
+    // Attendance legacy doc (not used in v4 but kept for safety)
+    match /attendance/{doc} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Audit: any signed-in user can write, only admin can read
+    match /audit/{doc} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+    }
+
+    // Presence: users can only update their own record
+    match /presence/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Users collection: admin-only write, any signed-in user can read
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
+
+==========================================================
+-->
 </body>
 </html>
